@@ -513,11 +513,9 @@ vector<smt::Expression> CHC::currentBlockVariables()
 
 string CHC::predicateName(FunctionDefinition const& _function)
 {
-	string functionName = _function.isConstructor() ?
-		"constructor" :
-		_function.isFallback() ?
-			"fallback" :
-			"function_" + _function.name();
+	string functionName = TokenTraits::toString(_function.kind());
+	if (!_function.name().empty())
+			functionName += "_" + _function.name();
 	return functionName + "_" + to_string(_function.id());
 }
 
