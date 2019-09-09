@@ -663,6 +663,7 @@ public:
 	bool isConstructor() const { return m_isConstructor; }
 	ASTPointer<OverrideSpecifier> const& overrides() const { return m_overrides; }
 	bool isFallback() const { return !m_isConstructor && name().empty(); }
+    bool isOverridable() const { return !isFallback() && !isConstructor(); }
 	bool isPayable() const { return m_stateMutability == StateMutability::Payable; }
 	std::vector<ASTPointer<ModifierInvocation>> const& modifiers() const { return m_functionModifiers; }
 	Block const& body() const { solAssert(m_body, ""); return *m_body; }
