@@ -11,4 +11,4 @@ contract X is A, B {
 	function test() internal override returns (uint256);
 }
 // ----
-// TypeError: (184-290): Ambiguous base function foo() must be overridden.
+// TypeError: (184-290): Functions of the same name foo and parameter types defined in two or more base contracts must be overridden in the derived contract.

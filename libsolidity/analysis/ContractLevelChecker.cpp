@@ -35,13 +35,18 @@ using namespace dev::solidity;
 
 namespace {
 
-template <class T>
-bool hasEqualNameAndParameters(T const& _a, T const& _b)
+vector<ContractDefinition const*> resolveBaseContracts(ContractDefinition const& _contract)
 {
-	return _a.name() == _b.name() &&
-		FunctionType(_a).asCallableFunction(false)->hasEqualParameterTypes(
-			*FunctionType(_b).asCallableFunction(false)
-	);
+	vector<ContractDefinition const*> resolvedContracts;
+
+	for (ASTPointer<InheritanceSpecifier> const& specifier: _contract.baseContracts())
+	{
+		Declaration const* baseDecl =
+			specifier->name().annotation().referencedDeclaration;
+		resolvedContracts.emplace_back(dynamic_cast<ContractDefinition const*>(baseDecl));
+	}
+
+	return resolvedContracts;
 }
 
 }
@@ -143,31 +148,10 @@ void ContractLevelChecker::findDuplicateDefinitions(map<string, vector<T>> const
 	}
 }
 
-vector<ContractDefinition const*> resolveBaseContracts(ContractDefinition const& _contract)
-{
-	vector<ContractDefinition const*> resolvedContracts{_contract.baseContracts().size(), nullptr};
-
-	transform(
-		_contract.baseContracts().cbegin(),
-		_contract.baseContracts().cend(),
-		resolvedContracts.begin(),
-		[] (ASTPointer<InheritanceSpecifier> const& _specifier)
-		{
-			Declaration const* baseDecl =
-				_specifier->name().annotation().referencedDeclaration;
-			return dynamic_cast<ContractDefinition const*>(baseDecl);
-		}
-	);
-
-	return resolvedContracts;
-}
-
-
-
 void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _contract)
 {
 	FunctionSet const& set = getBaseFunctions(&_contract);
-	auto const resolvedBases = resolveBaseContracts(_contract);
+	//auto const resolvedBases = resolveBaseContracts(_contract);
 
 	for (FunctionDefinition const* function: _contract.definedFunctions())
 	{
@@ -189,12 +173,15 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 		}
 
 		vector<ContractDefinition const*> specifiedContracts =
-			resolveOverrideList(*function->overrides());
+			function->overrides() ?
+			resolveOverrideList(*function->overrides()) :
+			decltype(specifiedContracts){};
 
 		decltype(specifiedContracts) missingContracts;
 
-		if (set.count(function) == 1)
-			continue;
+		LessFunction lessFunc;
+
+		lessFunc(function, function);
 
 		// Iterate over the overrides
 		for (
@@ -203,9 +190,10 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 			iterPair.first++
 		)
 		{
+			solAssert(!lessFunc(*iterPair.first, function), "");
 			// Only look at our direct bases
-			if (!contains(resolvedBases, (*iterPair.first)->annotation().contract))
-				continue;
+			//if (!contains(resolvedBases, (*iterPair.first)->annotation().contract))
+			//	continue;
 
 			// Validate the override
 			if (!checkFunctionOverride(*function, **iterPair.first))
@@ -223,7 +211,7 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 				specifiedContracts.erase(result);
 		}
 
-		if (!missingContracts.empty())
+		if (missingContracts.size() > 1)
 			overrideListError(
 				*function,
 				missingContracts,
@@ -364,7 +352,7 @@ bool ContractLevelChecker::checkFunctionOverride(FunctionDefinition const& _func
 	return success;
 }
 
-void ContractLevelChecker::overrideListError(FunctionDefinition const& function, vector<ContractDefinition const*> _secondary, string _message1, string _message2)
+void ContractLevelChecker::overrideListError(FunctionDefinition const& function, vector<ContractDefinition const*> _secondary, string const& _message1, string const& _message2)
 {
 	vector<string> names;
 	SecondarySourceLocation ssl;
@@ -696,19 +684,41 @@ void ContractLevelChecker::checkBaseABICompatibility(ContractDefinition const& _
 
 void ContractLevelChecker::checkAmbiguousOverrides(ContractDefinition const& _contract) const
 {
-	FunctionSet const& set = getBaseFunctions(&_contract);
-	auto const resolvedBases = resolveBaseContracts(_contract);
+	vector<FunctionDefinition const*> contractFuncs = _contract.definedFunctions();
 
-	for (FunctionDefinition const* function: set)
+	FunctionSet const& baseSet = getBaseFunctions(&_contract);
+	//auto const resolvedBases = resolveBaseContracts(_contract);
+
+	set<FunctionDefinition const*, LessFunction> processedFuncs;
+
+	for (FunctionDefinition const* function: baseSet)
 	{
 		// No conflict possible if only one function exists
-		if (set.count(function) == 1)
+		if (baseSet.count(function) == 1)
 			continue;
 
 		if (!function->isOverridable())
 			continue;
 
-		vector<FunctionDefinition const*> conflictingFunctions;
+		// Prevent double errors by skipping already processed functions
+		if (processedFuncs.find(function) != processedFuncs.cend())
+			continue;
+
+		processedFuncs.insert(function);
+
+		auto const result = find_if(
+			contractFuncs.cbegin(),
+			contractFuncs.cend(),
+			[&] (FunctionDefinition const* _f)
+			{
+				return hasEqualNameAndParameters(*_f, *function);
+			}
+		);
+
+		if (result != contractFuncs.cend())
+			continue;
+
+		/*vector<FunctionDefinition const*> conflictingFunctions;
 
 		// Iterate over the potentially conflicting base functions
 		for (
@@ -722,66 +732,47 @@ void ContractLevelChecker::checkAmbiguousOverrides(ContractDefinition const& _co
 				continue;
 
 			conflictingFunctions.emplace_back(*iterPair.first);
-		}
+		}*
 
-		if (conflictingFunctions.size() <= 1)
-			continue;
+		if (set.count(function) <= 1)
+			continue;*/
 
 		SecondarySourceLocation ssl;
 
-		for (FunctionDefinition const* conflictingFunc: conflictingFunctions)
-			ssl.append("Definition here: ", conflictingFunc->location());
+		//for (FunctionDefinition const* conflictingFunc: conflictingFunctions)
+		for (
+			auto iterPair = baseSet.equal_range(function);
+			iterPair.first != iterPair.second;
+			iterPair.first++
+		)
+			ssl.append("Definition here: ", (*iterPair.first)->location());
 
 		m_errorReporter.typeError(
 			_contract.location(),
 			ssl,
-			"Ambiguous base function " +
+			"Functions of the same name " +
 			function->name() +
-			" must be overridden."
+			" and parameter types defined in two or more base contracts must be overridden in the derived contract."
 		);
 	}
-
 }
 
 vector<ContractDefinition const*> ContractLevelChecker::resolveOverrideList(OverrideSpecifier const& _overrides) const
 {
-	std::vector<ASTPointer<UserDefinedTypeName>> const& overrides = _overrides.overrides();
+	vector<ContractDefinition const*> resolved;
 
-	vector<ContractDefinition const*> resolved{overrides.size(), nullptr};
+	for (ASTPointer<UserDefinedTypeName> const& override: _overrides.overrides())
+	{
+		Declaration const* decl  = override->annotation().referencedDeclaration;
+		solAssert(decl, "Expected declaration to be resolved.");
 
-	transform(
-		overrides.begin(),
-		overrides.end(),
-		resolved.begin(),
-		[&] (ASTPointer<UserDefinedTypeName> const& _name) -> ContractDefinition const*
-		{
-			Declaration const* decl  = _name->annotation().referencedDeclaration;
-			solAssert(decl, "Expected declaration to be resolved.");
+		// If it's not a contract it will be caught
+		// in the reference resolver
+		if (ContractDefinition const* contract = dynamic_cast<decltype(contract)>(decl))
+			resolved.emplace_back(contract);
+	}
 
-			if (ContractDefinition const* _contract = dynamic_cast<decltype(_contract)>(decl))
-				return _contract;
-
-			TypeType const* actualTypeType = dynamic_cast<TypeType const*>(decl->type());
-
-			// If it's not an enum, contract or struct, it will be caught
-			// earlier
-			solAssert(
-				actualTypeType,
-				"Expected contract, enum or struct (which should return TypeType!)"
-			);
-
-			m_errorReporter.typeError(
-				_name->location(),
-				"Expected contract but got " +
-				actualTypeType->actualType()->toString(true) +
-				"."
-			);
-
-			return nullptr;
-		}
-	);
-
-	return {resolved.begin(), remove(resolved.begin(), resolved.end(), nullptr)};
+	return resolved;
 }
 
 
@@ -795,13 +786,13 @@ ContractLevelChecker::FunctionSet const& ContractLevelChecker::getBaseFunctions(
 	FunctionSet set;
 
 	for (auto const* base: resolveBaseContracts(*_contract))
-	{
+//	{
 		for (auto const* func: base->definedFunctions())
 			set.insert(func);
 
-		auto const& baseFuncs = getBaseFunctions(base);
-		set.insert(baseFuncs.cbegin(), baseFuncs.cend());
-	}
+//		auto const& baseFuncs = getBaseFunctions(base);
+//		set.insert(baseFuncs.cbegin(), baseFuncs.cend());
+//	}
 
 	return m_contractBaseFunctions[_contract] = set;
 }

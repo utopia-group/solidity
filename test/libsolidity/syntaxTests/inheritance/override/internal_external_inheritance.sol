@@ -6,4 +6,4 @@ contract B {
 }
 contract C is A, B {}
 // ----
-// TypeError: (126-147): Ambiguous base function f() must be overridden.
+// TypeError: (126-147): Functions of the same name f and parameter types defined in two or more base contracts must be overridden in the derived contract.

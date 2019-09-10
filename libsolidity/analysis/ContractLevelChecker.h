@@ -36,18 +36,42 @@ namespace dev
 namespace solidity
 {
 
+template <class T>
+bool hasEqualNameAndParameters(T const& _a, T const& _b)
+{
+	return _a.name() == _b.name() &&
+		FunctionType(_a).asCallableFunction(false)->hasEqualParameterTypes(
+			*FunctionType(_b).asCallableFunction(false)
+		);
+}
+
 struct LessFunction
 {
 	bool operator()(FunctionDefinition const* _a, FunctionDefinition const* _b) const
 	{
+		if (hasEqualNameAndParameters(*_a, *_b))
+			return false;
+
 		if (_a->name() != _b->name())
 			return _a->name() < _b->name();
 
-		if (!FunctionType(*_a).asCallableFunction(false)->hasEqualParameterTypes(
-			*FunctionType(*_b).asCallableFunction(false)))
-			return &_a < &_b;
+		if (_a->parameters().size() != _b->parameters().size())
+			return _a->parameters().size() < _b->parameters().size();
 
-		return false;
+		for (
+			auto a = _a->parameters().cbegin(), b = _b->parameters().cbegin();
+			a != _a->parameters().cend() && b != _b->parameters().cend();
+			a++, b++
+		)
+		{
+			std::string aName = (*a)->type()->canonicalName();
+			std::string bName = (*b)->type()->canonicalName();
+
+			if (aName != bName)
+				return aName < bName;
+		}
+
+		solAssert(false, "");
 	}
 };
 
@@ -82,7 +106,7 @@ private:
 	/// overridden function signature differs.
 	/// Also stores the direct super function in the AST annotations.
 	bool checkFunctionOverride(FunctionDefinition const& _function, FunctionDefinition const& _super);
-	void overrideListError(FunctionDefinition const& function, std::vector<ContractDefinition const*> _secondary, std::string _message1, std::string _message2);
+	void overrideListError(FunctionDefinition const& function, std::vector<ContractDefinition const*> _secondary, std::string const& _message1, std::string const& _message2);
 	void overrideError(FunctionDefinition const& function, FunctionDefinition const& super, std::string message);
 	void checkAbstractFunctions(ContractDefinition const& _contract);
 	void checkBaseConstructorArguments(ContractDefinition const& _contract);
@@ -102,7 +126,8 @@ private:
 	void checkLibraryRequirements(ContractDefinition const& _contract);
 	/// Checks base contracts for ABI compatibility
 	void checkBaseABICompatibility(ContractDefinition const& _contract);
-	/// Checks for ambigious base functions that need to be overridden
+	/// Checks for functions in different base contracts that conflict with each
+	/// other and thus need to be overridden explicitly
 	void checkAmbiguousOverrides(ContractDefinition const& _contract) const;
 	/// Resolves an override list of UserDefinedTypeNames to a list of contracts
 	std::vector<ContractDefinition const*> resolveOverrideList(OverrideSpecifier const& _overrides) const;
