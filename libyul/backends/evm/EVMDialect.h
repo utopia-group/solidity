@@ -71,7 +71,6 @@ struct EVMDialect: public Dialect
 	BuiltinFunctionForEVM const* discardFunction() const override { return builtin("pop"_yulstring); }
 	BuiltinFunctionForEVM const* equalityFunction() const override { return builtin("eq"_yulstring); }
 
-	static EVMDialect const& looseAssemblyForEVM(langutil::EVMVersion _version);
 	static EVMDialect const& strictAssemblyForEVM(langutil::EVMVersion _version);
 	static EVMDialect const& strictAssemblyForEVMObjects(langutil::EVMVersion _version);
 	static EVMDialect const& yulForEVM(langutil::EVMVersion _version);
