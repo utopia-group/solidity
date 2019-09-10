@@ -56,6 +56,7 @@ bool ContractLevelChecker::check(ContractDefinition const& _contract)
 	checkDuplicateFunctions(_contract);
 	checkDuplicateEvents(_contract);
 	checkIllegalOverrides(_contract);
+	checkAmbiguousOverrides(_contract);
 	checkAbstractFunctions(_contract);
 	checkBaseConstructorArguments(_contract);
 	checkConstructor(_contract);
@@ -227,8 +228,6 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 				"specified in override list: "
 			);
 	}
-
-	checkAmbiguousOverrides(_contract);
 
 	// TODO unify this at a later point. for this we need to put the constness and the access specifier
 	// into the types
