@@ -85,11 +85,19 @@ bool ControlFlowBuilder::visit(Conditional const& _conditional)
 	return false;
 }
 
-bool ControlFlowBuilder::visit(TryStatement const&)
+bool ControlFlowBuilder::visit(TryStatement const& _tryStatement)
 {
-	// TODO
+	appendControlFlow(_tryStatement.externalCall());
 
-	return true;
+	auto nodes = splitFlow(_tryStatement.clauses().size());
+	for (size_t i = 0; i < _tryStatement.clauses().size(); ++i)
+	{
+		m_currentNode = nodes[i];
+		appendControlFlow(_tryStatement.clauses()[i]->block());
+	}
+	mergeFlow(nodes);
+
+	return false;
 }
 
 bool ControlFlowBuilder::visit(IfStatement const& _ifStatement)
