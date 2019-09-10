@@ -208,11 +208,6 @@ BOOST_AUTO_TEST_CASE(tuple_assignment)
 	BOOST_CHECK(successParse("{ function f() -> a:u256, b:u256, c:u256 {} let x:u256, y:u256, z:u256 := f() }"));
 }
 
-BOOST_AUTO_TEST_CASE(label)
-{
-	CHECK_ERROR("{ label: }", ParserError, "Labels are not supported.");
-}
-
 BOOST_AUTO_TEST_CASE(instructions)
 {
 	CHECK_ERROR("{ pop }", ParserError, "Call or assignment expected.");

@@ -6,4 +6,4 @@ contract C {
   }
 }
 // ----
-// ParserError: (70-71): Label name must precede ":".
+// ParserError: (70-71): Call or assignment expected.
