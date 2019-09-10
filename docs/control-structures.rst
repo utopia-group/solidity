@@ -16,7 +16,8 @@ There is: ``if``, ``else``, ``while``, ``do``, ``for``, ``break``, ``continue``,
 the usual semantics known from C or JavaScript.
 
 Solidity also supports exception handling in the form of ``try``/``catch``-statements,
-but only for :ref:`external function calls <external-function-calls>`.
+but only for :ref:`external function calls <external-function-calls>` and
+contract creation calls.
 
 Parentheses can *not* be omitted for conditionals, but curly brances can be omitted
 around single-statement bodies.
@@ -528,9 +529,10 @@ A failure in an external call can be caught using a try/catch statement, as foll
         }
     }
 
-The ``try`` keyword has to be followed by an expression representing an external function call.
-Any error inside the expression itself is not caught, only the error returned by the
-external call itself. The ``returns`` part (which is optional) that follows declares return variables
+The ``try`` keyword has to be followed by an expression representing an external function call
+or a contract creation (``new ContractName()``).
+Errors inside the expression are not caught, only a revert happening inside the external
+call itself. The ``returns`` part (which is optional) that follows declares return variables
 matching the types returned by the external call. In case there was no error,
 these variables are assigned and the contract's execution continues inside the
 first success block. If the end of the success block is reached, execution continues after the ``catch`` blocks.
