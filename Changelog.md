@@ -6,9 +6,9 @@ Breaking changes:
  * Commandline interface: remove the text-based ast printer (``--ast``).
  * General: Disallow explicit conversions from external function types to ``address`` and add a member called ``address`` to them as replacement.
  * General: New reserved keywords: ``virtual``.
+ * Inline Assembly: Only strict inline assembly is allowed.
  * Type checker: Resulting type of exponentiation is equal to the type of the base. Also allow signed types for the base.
  * Command line interface: Switch to the new error reporter by default. ``--old-reporter`` falls back to the deprecated old error reporter.
-
 
 Language Features:
  * Allow global enums and structs.
