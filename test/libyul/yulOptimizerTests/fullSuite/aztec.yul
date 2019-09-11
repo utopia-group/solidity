@@ -245,6 +245,7 @@
 //             mstore(0x00, 404)
 //             revert(0x00, 0x20)
 //         }
+//         let _2 := 0
 //         let kn := calldataload(add(calldatasize(), not(191)))
 //         mstore(0x2a0, caller())
 //         mstore(0x2c0, kn)
@@ -252,74 +253,73 @@
 //         kn := mulmod(sub(_1, kn), challenge, _1)
 //         hashCommitments(notes, n)
 //         let b := add(0x300, mul(n, 0x80))
-//         let i := 0
-//         let i_1 := i
+//         let i := _2
 //         for { } 1 { i := add(i, 0x01) }
 //         {
 //             if iszero(lt(i, n)) { break }
-//             let _2 := add(calldataload(0x04), mul(i, 0xc0))
-//             let noteIndex := add(_2, 0x24)
-//             let k := i_1
-//             let a := calldataload(add(_2, 0x44))
+//             let _3 := add(calldataload(0x04), mul(i, 0xc0))
+//             let noteIndex := add(_3, 0x24)
+//             let k := _2
+//             let a := calldataload(add(_3, 0x44))
 //             let c := challenge
-//             let _3 := add(i, 0x01)
-//             switch eq(_3, n)
+//             let _4 := add(i, 0x01)
+//             switch eq(_4, n)
 //             case 1 {
 //                 k := kn
 //                 if eq(m, n) { k := sub(_1, kn) }
 //             }
 //             case 0 { k := calldataload(noteIndex) }
 //             validateCommitment(noteIndex, k, a)
-//             switch gt(_3, m)
+//             switch gt(_4, m)
 //             case 1 {
 //                 kn := addmod(kn, sub(_1, k), _1)
-//                 let x := mod(mload(i_1), _1)
+//                 let x := mod(mload(_2), _1)
 //                 k := mulmod(k, x, _1)
 //                 a := mulmod(a, x, _1)
 //                 c := mulmod(challenge, x, _1)
-//                 mstore(i_1, keccak256(i_1, 0x20))
+//                 mstore(_2, keccak256(_2, 0x20))
 //             }
 //             case 0 { kn := addmod(kn, k, _1) }
-//             let _4 := 0x40
-//             calldatacopy(0xe0, add(_2, 164), _4)
-//             calldatacopy(0x20, add(_2, 100), _4)
+//             let _5 := 0x40
+//             calldatacopy(0xe0, add(_3, 164), _5)
+//             calldatacopy(0x20, add(_3, 100), _5)
 //             mstore(0x120, sub(_1, c))
 //             mstore(0x60, k)
 //             mstore(0xc0, a)
-//             let result := call(gas(), 7, i_1, 0xe0, 0x60, 0x1a0, _4)
-//             let result_1 := and(result, call(gas(), 7, i_1, 0x20, 0x60, 0x120, _4))
-//             let result_2 := and(result_1, call(gas(), 7, i_1, 0x80, 0x60, 0x160, _4))
-//             let result_3 := and(result_2, call(gas(), 6, i_1, 0x120, 0x80, 0x160, _4))
-//             result := and(result_3, call(gas(), 6, i_1, 0x160, 0x80, b, _4))
+//             let result := call(gas(), 7, _2, 0xe0, 0x60, 0x1a0, _5)
+//             let result_1 := and(result, call(gas(), 7, _2, 0x20, 0x60, 0x120, _5))
+//             let result_2 := and(result_1, call(gas(), 7, _2, 0x80, 0x60, 0x160, _5))
+//             let result_3 := and(result_2, call(gas(), 6, _2, 0x120, 0x80, 0x160, _5))
+//             result := and(result_3, call(gas(), 6, _2, 0x160, 0x80, b, _5))
 //             if eq(i, m)
 //             {
 //                 mstore(0x260, mload(0x20))
-//                 mstore(0x280, mload(_4))
+//                 mstore(0x280, mload(_5))
 //                 mstore(0x1e0, mload(0xe0))
 //                 mstore(0x200, sub(0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47, mload(0x100)))
 //             }
 //             if gt(i, m)
 //             {
 //                 mstore(0x60, c)
-//                 let result_4 := and(result, call(gas(), 7, i_1, 0x20, 0x60, 0x220, _4))
-//                 let result_5 := and(result_4, call(gas(), 6, i_1, 0x220, 0x80, 0x260, _4))
-//                 result := and(result_5, call(gas(), 6, i_1, 0x1a0, 0x80, 0x1e0, _4))
+//                 let result_4 := and(result, call(gas(), 7, _2, 0x20, 0x60, 0x220, _5))
+//                 let result_5 := and(result_4, call(gas(), 6, _2, 0x220, 0x80, 0x260, _5))
+//                 result := and(result_5, call(gas(), 6, _2, 0x1a0, 0x80, 0x1e0, _5))
 //             }
 //             if iszero(result)
 //             {
-//                 mstore(i_1, 400)
-//                 revert(i_1, 0x20)
+//                 mstore(_2, 400)
+//                 revert(_2, 0x20)
 //             }
-//             b := add(b, _4)
+//             b := add(b, _5)
 //         }
 //         if lt(m, n) { validatePairing(0x64) }
 //         if iszero(eq(mod(keccak256(0x2a0, add(b, not(671))), _1), challenge))
 //         {
-//             mstore(i_1, 404)
-//             revert(i_1, 0x20)
+//             mstore(_2, 404)
+//             revert(_2, 0x20)
 //         }
-//         mstore(i_1, 0x01)
-//         return(i_1, 0x20)
+//         mstore(_2, 0x01)
+//         return(_2, 0x20)
 //     }
 //     function validatePairing(t2)
 //     {

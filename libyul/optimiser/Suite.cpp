@@ -25,6 +25,7 @@
 #include <libyul/optimiser/BlockFlattener.h>
 #include <libyul/optimiser/CallGraphGenerator.h>
 #include <libyul/optimiser/ControlFlowSimplifier.h>
+#include <libyul/optimiser/ConditionalSimplifier.h>
 #include <libyul/optimiser/DeadCodeEliminator.h>
 #include <libyul/optimiser/FunctionGrouper.h>
 #include <libyul/optimiser/FunctionHoister.h>
@@ -35,6 +36,7 @@
 #include <libyul/optimiser/FullInliner.h>
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
 #include <libyul/optimiser/ForLoopInitRewriter.h>
+#include <libyul/optimiser/ForLoopConditionIntoBody.h>
 #include <libyul/optimiser/Rematerialiser.h>
 #include <libyul/optimiser/UnusedPruner.h>
 #include <libyul/optimiser/ExpressionSimplifier.h>
@@ -91,6 +93,7 @@ void OptimiserSuite::run(
 	EquivalentFunctionCombiner::run(ast);
 	UnusedPruner::runUntilStabilisedOnFullAST(_dialect, ast, reservedIdentifiers);
 	BlockFlattener{}(ast);
+	ConditionalSimplifier{_dialect}(ast);
 	ControlFlowSimplifier{_dialect}(ast);
 	LiteralRematerialiser{_dialect}(ast);
 	StructuralSimplifier{}(ast);
@@ -126,8 +129,9 @@ void OptimiserSuite::run(
 		}
 
 		{
-			// still in SSA, perform structural simplification
-			ControlFlowSimplifier{_dialect}(ast);
+			// perform structural simplification
+			CommonSubexpressionEliminator::run(_dialect, ast);
+			ConditionalSimplifier{_dialect}(ast);
 			LiteralRematerialiser{_dialect}(ast);
 			StructuralSimplifier{}(ast);
 			ControlFlowSimplifier{_dialect}(ast);
@@ -138,6 +142,9 @@ void OptimiserSuite::run(
 
 		{
 			// simplify again
+			SSATransform::run(ast, dispenser);
+			RedundantAssignEliminator::run(_dialect, ast);
+			RedundantAssignEliminator::run(_dialect, ast);
 			LoadResolver::run(_dialect, ast);
 			CommonSubexpressionEliminator::run(_dialect, ast);
 			UnusedPruner::runUntilStabilisedOnFullAST(_dialect, ast, reservedIdentifiers);
@@ -181,7 +188,10 @@ void OptimiserSuite::run(
 
 		{
 			// SSA plus simplify
+			ConditionalSimplifier{_dialect}(ast);
+			CommonSubexpressionEliminator::run(_dialect, ast);
 			SSATransform::run(ast, dispenser);
+			CommonSubexpressionEliminator::run(_dialect, ast);
 			RedundantAssignEliminator::run(_dialect, ast);
 			RedundantAssignEliminator::run(_dialect, ast);
 			LoadResolver::run(_dialect, ast);
