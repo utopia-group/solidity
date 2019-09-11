@@ -255,6 +255,12 @@ bool contains(T const& _t, V const& _v)
 	return std::end(_t) != std::find(std::begin(_t), std::end(_t), _v);
 }
 
+template <class T, class Predicate>
+bool contains_if(T const& _t, Predicate const& _p)
+{
+	return std::end(_t) != std::find_if(std::begin(_t), std::end(_t), _p);
+}
+
 /// Function that iterates over a vector, calling a function on each of its
 /// elements. If that function returns a vector, the element is replaced by
 /// the returned vector. During the iteration, the original vector is only valid

@@ -152,7 +152,7 @@ void ContractLevelChecker::findDuplicateDefinitions(map<string, vector<T>> const
 void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _contract)
 {
 	FunctionSet const& set = getBaseFunctions(&_contract);
-	//auto const resolvedBases = resolveBaseContracts(_contract);
+	auto const resolvedBases = resolveBaseContracts(_contract);
 
 	for (FunctionDefinition const* function: _contract.definedFunctions())
 	{
@@ -185,29 +185,29 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 		lessFunc(function, function);
 
 		// Iterate over the overrides
-		for (
-			auto iterPair = set.equal_range(function);
-			iterPair.first != iterPair.second;
-			iterPair.first++
-		)
+		for (auto [begin, end] = set.equal_range(function); begin != end; begin++)
 		{
-			solAssert(!lessFunc(*iterPair.first, function), "");
-			// Only look at our direct bases
-			//if (!contains(resolvedBases, (*iterPair.first)->annotation().contract))
-			//	continue;
+			solAssert(!lessFunc(*begin, function), "");
+
+			// TODO undecided if this should be included or not.
+			// Only allow overrides of direct bases
+			/*if (!contains(resolvedBases, (*begin)->annotation().contract))
+				m_errorReporter.typeError(
+					(*begin)->location(),
+					"Function needs to be (re-)defined in the direct base contract to be overridable."
+				);*/
 
 			// Validate the override
-			if (!checkFunctionOverride(*function, **iterPair.first))
-				continue;
+			checkFunctionOverride(*function, **begin);
 
 			auto const result = find(
 				specifiedContracts.cbegin(),
 				specifiedContracts.cend(),
-				(*iterPair.first)->annotation().contract
+				(*begin)->annotation().contract
 			);
 
 			if (result == specifiedContracts.cend())
-				missingContracts.emplace_back((*iterPair.first)->annotation().contract);
+				missingContracts.emplace_back((*begin)->annotation().contract);
 			else
 				specifiedContracts.erase(result);
 		}
@@ -365,7 +365,7 @@ void ContractLevelChecker::overrideListError(FunctionDefinition const& function,
 		contractSingularPlural = "contracts ";
 
 	m_errorReporter.typeError(
-		function.overrides()->location(),
+		function.overrides() ? function.overrides()->location() : function.location(),
 		ssl,
 		_message1 +
 		contractSingularPlural +
@@ -688,69 +688,42 @@ void ContractLevelChecker::checkAmbiguousOverrides(ContractDefinition const& _co
 	FunctionSet const& baseSet = getBaseFunctions(&_contract);
 	//auto const resolvedBases = resolveBaseContracts(_contract);
 
-	set<FunctionDefinition const*, LessFunction> processedFuncs;
-
-	for (FunctionDefinition const* function: baseSet)
+	for (auto it = baseSet.cbegin(); it != baseSet.cend(); it = baseSet.upper_bound(*it))
 	{
-		// No conflict possible if only one function exists
-		if (baseSet.count(function) == 1)
+		auto [begin,end] = baseSet.equal_range(*it);
+
+		// Only one function
+		if (next(begin) == end)
 			continue;
 
-		if (!function->isOverridable())
+		// Not an overridable function
+		if (!(*it)->isOverridable())
 			continue;
 
-		// Prevent double errors by skipping already processed functions
-		if (processedFuncs.find(function) != processedFuncs.cend())
+		// Only look at our direct bases
+		//if (!contains(resolvedBases, (*it)->annotation().contract))
+		//	continue;
+
+		// Function has been explicitly overriden
+		if (contains_if(
+				contractFuncs,
+				[&] (FunctionDefinition const* _f) {
+					return hasEqualNameAndParameters(*_f, **it);
+				}
+			)
+	   	)
 			continue;
-
-		processedFuncs.insert(function);
-
-		auto const result = find_if(
-			contractFuncs.cbegin(),
-			contractFuncs.cend(),
-			[&] (FunctionDefinition const* _f)
-			{
-				return hasEqualNameAndParameters(*_f, *function);
-			}
-		);
-
-		if (result != contractFuncs.cend())
-			continue;
-
-		/*vector<FunctionDefinition const*> conflictingFunctions;
-
-		// Iterate over the potentially conflicting base functions
-		for (
-			auto iterPair = set.equal_range(function);
-			iterPair.first != iterPair.second;
-			iterPair.first++
-		)
-		{
-			// Only look at our direct bases
-			if (!contains(resolvedBases, (*iterPair.first)->annotation().contract))
-				continue;
-
-			conflictingFunctions.emplace_back(*iterPair.first);
-		}*
-
-		if (set.count(function) <= 1)
-			continue;*/
 
 		SecondarySourceLocation ssl;
 
-		//for (FunctionDefinition const* conflictingFunc: conflictingFunctions)
-		for (
-			auto iterPair = baseSet.equal_range(function);
-			iterPair.first != iterPair.second;
-			iterPair.first++
-		)
-			ssl.append("Definition here: ", (*iterPair.first)->location());
+		for (;begin != end; begin++)
+			ssl.append("Definition here: ", (*begin)->location());
 
 		m_errorReporter.typeError(
 			_contract.location(),
 			ssl,
 			"Functions of the same name " +
-			function->name() +
+			(*it)->name() +
 			" and parameter types defined in two or more base contracts must be overridden in the derived contract."
 		);
 	}
@@ -782,16 +755,20 @@ ContractLevelChecker::FunctionSet const& ContractLevelChecker::getBaseFunctions(
 	if (result != m_contractBaseFunctions.cend())
 		return result->second;
 
-	FunctionSet set;
+	FunctionSet set, tmpSet;
 
 	for (auto const* base: resolveBaseContracts(*_contract))
-//	{
+	{
 		for (auto const* func: base->definedFunctions())
-			set.insert(func);
+			tmpSet.insert(func);
 
-//		auto const& baseFuncs = getBaseFunctions(base);
-//		set.insert(baseFuncs.cbegin(), baseFuncs.cend());
-//	}
+		for (auto const& func: getBaseFunctions(base))
+			if (tmpSet.find(func) == set.cend())
+				tmpSet.insert(func);
+
+		set.merge(tmpSet);
+		tmpSet.clear();
+	}
 
 	return m_contractBaseFunctions[_contract] = set;
 }

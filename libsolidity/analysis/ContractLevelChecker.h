@@ -25,6 +25,7 @@
 #include <map>
 #include <set>
 #include <list>
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace langutil
 {
@@ -55,23 +56,14 @@ struct LessFunction
 		if (_a->name() != _b->name())
 			return _a->name() < _b->name();
 
-		if (_a->parameters().size() != _b->parameters().size())
-			return _a->parameters().size() < _b->parameters().size();
-
-		for (
-			auto a = _a->parameters().cbegin(), b = _b->parameters().cbegin();
-			a != _a->parameters().cend() && b != _b->parameters().cend();
-			a++, b++
-		)
-		{
-			std::string aName = (*a)->type()->canonicalName();
-			std::string bName = (*b)->type()->canonicalName();
-
-			if (aName != bName)
-				return aName < bName;
-		}
-
-		solAssert(false, "");
+		return boost::lexicographical_compare(
+			_a->parameters(),
+			_b->parameters(),
+			[](auto const& __a, auto const& __b)
+			{
+				return __a->type()->canonicalName() < __b->type()->canonicalName();
+			}
+		);
 	}
 };
 
