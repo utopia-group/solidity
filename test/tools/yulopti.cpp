@@ -43,6 +43,7 @@
 #include <libyul/optimiser/ExpressionInliner.h>
 #include <libyul/optimiser/FullInliner.h>
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
+#include <libyul/optimiser/ForLoopConditionOutOfBody.h>
 #include <libyul/optimiser/ForLoopInitRewriter.h>
 #include <libyul/optimiser/MainFunction.h>
 #include <libyul/optimiser/Rematerialiser.h>
