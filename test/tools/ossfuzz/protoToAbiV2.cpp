@@ -653,27 +653,45 @@ void ProtoConverter::visit(ArrayType const& _x)
 	if (_x.info_size() == 0 || _x.info_size() > (int)s_maxArrayDimensions)
 		return;
 
+	bool isDynamicallyEncodedArray = false;
+	// Type is dynamically encoded if at least one dimension is
+	// dynamically sized.
+	for (auto const& dim: _x.info())
+		if (!dim.is_static())
+		{
+			isDynamicallyEncodedArray = true;
+			break;
+		}
+
 	string baseType = {};
 	switch (_x.base_type_oneof_case())
 	{
 	case ArrayType::kInty:
 		baseType = getIntTypeAsString(_x.inty());
-		m_isLastDynParamRightPadded = false;
+		if (isDynamicallyEncodedArray)
+			m_isLastDynParamRightPadded = true;
 		break;
 	case ArrayType::kByty:
 		baseType = getFixedByteTypeAsString(_x.byty());
-		m_isLastDynParamRightPadded = false;
+		if (isDynamicallyEncodedArray)
+			m_isLastDynParamRightPadded = true;
 		break;
 	case ArrayType::kAdty:
 		baseType = getAddressTypeAsString(_x.adty());
-		m_isLastDynParamRightPadded = false;
+		if (isDynamicallyEncodedArray)
+			m_isLastDynParamRightPadded = true;
 		break;
 	case ArrayType::kBoolty:
 		baseType = getBoolTypeAsString();
-		m_isLastDynParamRightPadded = false;
+		if (isDynamicallyEncodedArray)
+			m_isLastDynParamRightPadded = true;
 		break;
 	case ArrayType::kDynbytesty:
 		baseType = bytesArrayTypeAsString(_x.dynbytesty());
+		// Both static and dynamically sized arrays
+		// of base type "bytes"/"string" are dynamically
+		// encoded. So, there is no need to check if
+		// array is dynamically sized.
 		m_isLastDynParamRightPadded = true;
 		break;
 	case ArrayType::kStty:
