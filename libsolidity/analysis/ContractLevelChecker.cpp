@@ -151,17 +151,55 @@ void ContractLevelChecker::findDuplicateDefinitions(map<string, vector<T>> const
 
 void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _contract)
 {
-	FunctionSet const& set = getBaseFunctions(&_contract);
+	FunctionSet const& funcSet = getBaseFunctions(&_contract);
+	ModifierSet const& modSet = getBaseModifiers(&_contract);
 	auto const resolvedBases = resolveBaseContracts(_contract);
+
+	struct MatchByName
+	{
+		string const& m_name;
+		bool operator()(CallableDeclaration const* _callable)
+		{
+			return _callable->name() == m_name;
+		}
+	};
+
+	for (ModifierDefinition const* modifier: _contract.functionModifiers())
+	{
+		if (contains_if(funcSet, MatchByName{modifier->name()}))
+			m_errorReporter.typeError(
+				modifier->location(),
+				"Override changes function to modifier."
+			);
+
+		auto [begin,end] = modSet.equal_range(modifier);
+
+		// Skip if no modifiers found in bases
+		if (begin == end)
+			continue;
+
+		if (!modifier->overrides())
+			overrideError(*modifier, **begin, "Overriding modifier is missing 'override' specifier.");
+
+		for (; begin != end; begin++)
+			if (ModifierType(**begin) != ModifierType(*modifier))
+				m_errorReporter.typeError(
+					modifier->location(),
+					"Override changes modifier signature."
+			);
+	}
 
 	for (FunctionDefinition const* function: _contract.definedFunctions())
 	{
+		if (contains_if(modSet, MatchByName{function->name()}))
+			m_errorReporter.typeError(function->location(), "Override changes modifier to function.");
+
 		// Skip if not overridable
 		if (!function->isOverridable())
 			continue;
 
 		// No overriding functions found
-		if (set.find(function) == set.cend())
+		if (funcSet.find(function) == funcSet.cend())
 		{
 			// Skip if no override
 			if (!function->overrides())
@@ -180,15 +218,9 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 
 		decltype(specifiedContracts) missingContracts;
 
-		LessFunction lessFunc;
-
-		lessFunc(function, function);
-
 		// Iterate over the overrides
-		for (auto [begin, end] = set.equal_range(function); begin != end; begin++)
+		for (auto [begin, end] = funcSet.equal_range(function); begin != end; begin++)
 		{
-			solAssert(!lessFunc(*begin, function), "");
-
 			// TODO undecided if this should be included or not.
 			// Only allow overrides of direct bases
 			/*if (!contains(resolvedBases, (*begin)->annotation().contract))
@@ -228,73 +260,6 @@ void ContractLevelChecker::checkIllegalOverrides(ContractDefinition const& _cont
 				"specified in override list: "
 			);
 	}
-
-	// TODO unify this at a later point. for this we need to put the constness and the access specifier
-	// into the types
-	/*
-	map<string, list<FunctionInfo>> functions;
-	map<string, ModifierDefinition const*> modifiers;
-
-	bool isMostDerivedContract = true;
-
-	// We search from derived to base, so the stored item causes the error.
-	for (ContractDefinition const* contract: _contract.annotation().linearizedBaseContracts)
-	{
-		for (FunctionDefinition const* function: contract->definedFunctions())
-		{
-			if (function->isConstructor())
-				continue; // constructors can neither be overridden nor override anything
-
-
-			string const& name = function->name();
-
-			// Don't check the most derived contract as that leads to wrong
-			// errors (functions of the same contract are checked with override
-			// logic against each other)
-			if (!isMostDerivedContract)
-			{
-				if (modifiers.count(name))
-					m_errorReporter.typeError(
-						modifiers[name]->location(),
-						"Override changes function to modifier."
-					);
-
-				auto& overriding = functions[name];
-				for (auto it = overriding.begin(); it != overriding.end();)
-					if (!checkFunctionOverride(
-						*it->funcDef,
-						*function,
-						isBaseOf(*it, {function, contract})
-					))
-						// Remove errored functions to avoid double error reports
-						it = overriding.erase(it);
-					else
-						it++;
-			}
-
-			functions[name].push_back({function, contract});
-		}
-
-		for (ModifierDefinition const* modifier: contract->functionModifiers())
-		{
-			string const& name = modifier->name();
-			ModifierDefinition const*& override = modifiers[name];
-
-			if (!override)
-				override = modifier;
-			else if (ModifierType(*override) != ModifierType(*modifier))
-				m_errorReporter.typeError(override->location(), "Override changes modifier signature.");
-
-			if (!functions[name].empty())
-				m_errorReporter.typeError(override->location(), "Override changes modifier to function.");
-		}
-
-		isMostDerivedContract = false;
-	}
-
-	checkAmbiguousOverrides(_contract, functions);
-	checkOverrideList(functions);
-	*/
 }
 
 bool ContractLevelChecker::checkFunctionOverride(FunctionDefinition const& _function, FunctionDefinition const& _super)
@@ -375,7 +340,7 @@ void ContractLevelChecker::overrideListError(FunctionDefinition const& function,
 	);
 }
 
-void ContractLevelChecker::overrideError(FunctionDefinition const& function, FunctionDefinition const& super, string message)
+void ContractLevelChecker::overrideError(CallableDeclaration const& function, CallableDeclaration const& super, string message)
 {
 	m_errorReporter.typeError(
 		function.location(),
@@ -747,7 +712,6 @@ vector<ContractDefinition const*> ContractLevelChecker::resolveOverrideList(Over
 	return resolved;
 }
 
-
 ContractLevelChecker::FunctionSet const& ContractLevelChecker::getBaseFunctions(ContractDefinition const* _contract) const
 {
 	auto const& result = m_contractBaseFunctions.find(_contract);
@@ -755,20 +719,45 @@ ContractLevelChecker::FunctionSet const& ContractLevelChecker::getBaseFunctions(
 	if (result != m_contractBaseFunctions.cend())
 		return result->second;
 
-	FunctionSet set, tmpSet;
+	FunctionSet set;
 
 	for (auto const* base: resolveBaseContracts(*_contract))
 	{
-		for (auto const* func: base->definedFunctions())
-			tmpSet.insert(func);
+		auto const defFuncs = base->definedFunctions();
+
+		FunctionSet tmpSet{defFuncs.begin(), defFuncs.end()};
 
 		for (auto const& func: getBaseFunctions(base))
-			if (tmpSet.find(func) == set.cend())
+			if (contains(tmpSet, func))
 				tmpSet.insert(func);
 
 		set.merge(tmpSet);
-		tmpSet.clear();
 	}
 
 	return m_contractBaseFunctions[_contract] = set;
+}
+
+ContractLevelChecker::ModifierSet const& ContractLevelChecker::getBaseModifiers(ContractDefinition const* _contract) const
+{
+	auto const& result = m_contractBaseModifiers.find(_contract);
+
+	if (result != m_contractBaseModifiers.cend())
+		return result->second;
+
+	ModifierSet set;
+
+	for (auto const* base: resolveBaseContracts(*_contract))
+	{
+		auto const mods = base->functionModifiers();
+
+		ModifierSet tmpSet{mods.begin(), mods.end()};
+
+		for (auto const& mod: getBaseModifiers(base))
+			if (!contains(tmpSet, mod))
+				tmpSet.insert(mod);
+
+		set.merge(tmpSet);
+	}
+
+	return m_contractBaseModifiers[_contract] = set;
 }

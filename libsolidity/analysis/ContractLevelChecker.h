@@ -48,10 +48,15 @@ bool hasEqualNameAndParameters(T const& _a, T const& _b)
 
 struct LessFunction
 {
+	bool operator()(ModifierDefinition const* _a, ModifierDefinition const* _b) const
+	{
+		return _a->name() < _b->name();
+	}
+
 	bool operator()(FunctionDefinition const* _a, FunctionDefinition const* _b) const
 	{
-		if (hasEqualNameAndParameters(*_a, *_b))
-			return false;
+		/*if (hasEqualNameAndParameters(*_a, *_b))
+			return false;*/
 
 		if (_a->name() != _b->name())
 			return _a->name() < _b->name();
@@ -75,6 +80,7 @@ class ContractLevelChecker
 {
 public:
 	using FunctionSet = std::multiset<FunctionDefinition const*, LessFunction>;
+	using ModifierSet = std::multiset<ModifierDefinition const*, LessFunction>;
 
 	/// @param _errorReporter provides the error logging functionality.
 	explicit ContractLevelChecker(langutil::ErrorReporter& _errorReporter):
@@ -99,7 +105,7 @@ private:
 	/// Also stores the direct super function in the AST annotations.
 	bool checkFunctionOverride(FunctionDefinition const& _function, FunctionDefinition const& _super);
 	void overrideListError(FunctionDefinition const& function, std::vector<ContractDefinition const*> _secondary, std::string const& _message1, std::string const& _message2);
-	void overrideError(FunctionDefinition const& function, FunctionDefinition const& super, std::string message);
+	void overrideError(CallableDeclaration const& function, CallableDeclaration const& super, std::string message);
 	void checkAbstractFunctions(ContractDefinition const& _contract);
 	void checkBaseConstructorArguments(ContractDefinition const& _contract);
 	void annotateBaseConstructorArguments(
@@ -126,6 +132,7 @@ private:
 
 
 	FunctionSet const& getBaseFunctions(ContractDefinition const* _contract) const;
+	ModifierSet const& getBaseModifiers(ContractDefinition const* _contract) const;
 
 	langutil::ErrorReporter& m_errorReporter;
 
@@ -133,6 +140,7 @@ private:
 	/// Map of multisets that contain all overridable functions for the given
 	/// contract
 	std::map<ContractDefinition const*, FunctionSet> mutable m_contractBaseFunctions;
+	std::map<ContractDefinition const*, ModifierSet> mutable m_contractBaseModifiers;
 };
 
 }
