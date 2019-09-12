@@ -2113,7 +2113,7 @@ BOOST_AUTO_TEST_CASE(virtual_function_calls)
 			function g() public returns (uint i) { return 1; }
 		}
 		contract Derived is Base {
-			function g() public returns (uint i) { return 2; }
+			function g() public override returns (uint i) { return 2; }
 		}
 	)";
 	ALSO_VIA_YUL(
@@ -2175,10 +2175,10 @@ BOOST_AUTO_TEST_CASE(explicit_base_class)
 {
 	char const* sourceCode = R"(
 		contract BaseBase { function g() public returns (uint r) { return 1; } }
-		contract Base is BaseBase { function g() public returns (uint r) { return 2; } }
+		contract Base is BaseBase { function g() public override returns (uint r) { return 2; } }
 		contract Derived is Base {
 			function f() public returns (uint r) { return BaseBase.g(); }
-			function g() public returns (uint r) { return 3; }
+			function g() public override returns (uint r) { return 3; }
 		}
 	)";
 	compileAndRun(sourceCode, 0, "Derived");
@@ -2357,7 +2357,7 @@ BOOST_AUTO_TEST_CASE(function_modifier_calling_functions_in_creation_context)
 		}
 		contract C is A {
 			modifier mod1 { f4(); _; }
-			function f3() public { data |= 0x300; }
+			function f3() public override { data |= 0x300; }
 			function f4() public { data |= 0x4000; }
 		}
 	)";
@@ -2483,9 +2483,9 @@ BOOST_AUTO_TEST_CASE(super)
 {
 	char const* sourceCode = R"(
 		contract A { function f() public returns (uint r) { return 1; } }
-		contract B is A { function f() public returns (uint r) { return super.f() | 2; } }
-		contract C is A { function f() public returns (uint r) { return super.f() | 4; } }
-		contract D is B, C { function f() public returns (uint r) { return super.f() | 8; } }
+		contract B is A { function f() public override returns (uint r) { return super.f() | 2; } }
+		contract C is A { function f() public override returns (uint r) { return super.f() | 4; } }
+		contract D is B, C { function f() public override(B, C) returns (uint r) { return super.f() | 8; } }
 	)";
 	compileAndRun(sourceCode, 0, "D");
 	ABI_CHECK(callContractFunction("f()"), encodeArgs(1 | 2 | 4 | 8));
@@ -2495,9 +2495,9 @@ BOOST_AUTO_TEST_CASE(super_in_constructor)
 {
 	char const* sourceCode = R"(
 		contract A { function f() public returns (uint r) { return 1; } }
-		contract B is A { function f() public returns (uint r) { return super.f() | 2; } }
-		contract C is A { function f() public returns (uint r) { return super.f() | 4; } }
-		contract D is B, C { uint data; constructor() public { data = super.f() | 8; } function f() public returns (uint r) { return data; } }
+		contract B is A { function f() public override returns (uint r) { return super.f() | 2; } }
+		contract C is A { function f() public override returns (uint r) { return super.f() | 4; } }
+		contract D is B, C { uint data; constructor() public { data = super.f() | 8; } function f() public override (B, C) returns (uint r) { return data; } }
 	)";
 	compileAndRun(sourceCode, 0, "D");
 	ABI_CHECK(callContractFunction("f()"), encodeArgs(1 | 2 | 4 | 8));
@@ -6029,9 +6029,11 @@ BOOST_AUTO_TEST_CASE(proper_order_of_overwriting_of_attributes)
 
 		contract init_fix is init, fix {
 			function checkOk() public returns (bool) { return ok; }
+			function isOk() public override (init, fix) returns (bool) { return super.isOk(); }
 		}
 		contract fix_init is fix, init {
 			function checkOk() public returns (bool) { return ok; }
+			function isOk() public override (init, fix) returns (bool) { return super.isOk(); }
 		}
 	)";
 	compileAndRun(sourceCode, 0, "init_fix");
@@ -7994,7 +7996,7 @@ BOOST_AUTO_TEST_CASE(inherited_function) {
 	char const* sourceCode = R"(
 		contract A { function f() internal returns (uint) { return 1; } }
 		contract B is A {
-			function f() internal returns (uint) { return 2; }
+			function f() internal override returns (uint) { return 2; }
 			function g() public returns (uint) {
 				return A.f();
 			}
@@ -8009,7 +8011,7 @@ BOOST_AUTO_TEST_CASE(inherited_function_calldata_memory) {
 	char const* sourceCode = R"(
 		contract A { function f(uint[] calldata a) external returns (uint) { return a[0]; } }
 		contract B is A {
-			function f(uint[] memory a) public returns (uint) { return a[1]; }
+			function f(uint[] memory a) public override returns (uint) { return a[1]; }
 			function g() public returns (uint) {
 				uint[] memory m = new uint[](2);
 				m[0] = 42;
@@ -8026,7 +8028,7 @@ BOOST_AUTO_TEST_CASE(inherited_function_calldata_memory) {
 BOOST_AUTO_TEST_CASE(inherited_function_calldata_memory_interface) {
 	char const* sourceCode = R"(
 		interface I { function f(uint[] calldata a) external returns (uint); }
-		contract A is I { function f(uint[] memory a) public returns (uint) { return 42; } }
+		contract A is I { function f(uint[] memory a) public override returns (uint) { return 42; } }
 		contract B {
 			function f(uint[] memory a) public returns (uint) { return a[1]; }
 			function g() public returns (uint) {
@@ -8043,7 +8045,7 @@ BOOST_AUTO_TEST_CASE(inherited_function_calldata_memory_interface) {
 BOOST_AUTO_TEST_CASE(inherited_function_calldata_calldata_interface) {
 	char const* sourceCode = R"(
 		interface I { function f(uint[] calldata a) external returns (uint); }
-		contract A is I { function f(uint[] calldata a) external returns (uint) { return 42; } }
+		contract A is I { function f(uint[] calldata a) external override returns (uint) { return 42; } }
 		contract B {
 			function f(uint[] memory a) public returns (uint) { return a[1]; }
 			function g() public returns (uint) {
@@ -12482,7 +12484,7 @@ BOOST_AUTO_TEST_CASE(interface_contract)
 		}
 
 		contract A is I {
-			function f() public returns (bool) {
+			function f() public override returns (bool) {
 				return g();
 			}
 
@@ -14490,7 +14492,7 @@ BOOST_AUTO_TEST_CASE(external_public_override)
 			function f() external returns (uint) { return 1; }
 		}
 		contract B is A {
-			function f() public returns (uint) { return 2; }
+			function f() public override returns (uint) { return 2; }
 			function g() public returns (uint) { return f(); }
 		}
 	)";
@@ -14658,7 +14660,7 @@ BOOST_AUTO_TEST_CASE(contract_name)
 			}
 		}
 		contract D is C {
-			function name() public pure returns (string memory) {
+			function name() public override pure returns (string memory) {
 				return type(D).name;
 			}
 			function name2() public pure returns (string memory) {
