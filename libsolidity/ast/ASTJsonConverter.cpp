@@ -38,9 +38,14 @@ namespace dev
 namespace solidity
 {
 
-ASTJsonConverter::ASTJsonConverter(bool _legacy, map<string, unsigned> _sourceIndices):
+ASTJsonConverter::ASTJsonConverter(
+  bool _legacy,
+  map<string, unsigned> _sourceIndices,
+  GasEstimator::ASTGasConsumption const& _gasCosts
+):
 	m_legacy(_legacy),
-	m_sourceIndices(_sourceIndices)
+	m_sourceIndices(_sourceIndices),
+    m_gasCosts(_gasCosts)
 {
 }
 
@@ -189,12 +194,16 @@ Json::Value ASTJsonConverter::inlineAssemblyIdentifierToJson(pair<yul::Identifie
 
 void ASTJsonConverter::print(ostream& _stream, ASTNode const& _node)
 {
-	_stream << toJson(_node);
+    _stream << toJson(_node);
 }
 
 Json::Value&& ASTJsonConverter::toJson(ASTNode const& _node)
 {
 	_node.accept(*this);
+
+    if (m_gasCosts.count(&_node))
+      m_currentValue["gasCost"] = m_gasCosts.at(&_node).value.convert_to<unsigned int>();
+
 	return std::move(m_currentValue);
 }
 

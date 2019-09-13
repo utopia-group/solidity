@@ -747,10 +747,7 @@ Json::Value StandardCompiler::compileSolidity(StandardCompiler::InputsAndSetting
 
 	try
 	{
-		if (binariesRequested)
-			compilerStack.compile();
-		else
-			compilerStack.parseAndAnalyze();
+		compilerStack.compile();
 
 		for (auto const& error: compilerStack.errors())
 		{
@@ -850,6 +847,23 @@ Json::Value StandardCompiler::compileSolidity(StandardCompiler::InputsAndSetting
 	if (compilerStack.hasError() && !_inputsAndSettings.parserErrorRecovery)
 		analysisPerformed = false;
 
+    map<ASTNode const*, eth::GasMeter::GasConsumption> gasCosts;
+    if (compilationSuccess)
+    {
+        vector<ASTNode const*> asts;
+        for (string const& sourceName: analysisPerformed ? compilerStack.sourceNames() : vector<string>())
+			asts.push_back(&compilerStack.ast(sourceName));
+
+		for (auto const& contract: compilerStack.contractNames())
+            if (auto const* assemblyItems = compilerStack.runtimeAssemblyItems(contract))
+            {
+                auto ret = GasEstimator::breakToStatementLevel(
+                  GasEstimator(_inputsAndSettings.evmVersion).structuralEstimation(*assemblyItems, asts), asts);
+                for (auto const& it: ret)
+                   gasCosts[it.first] += it.second;
+            }
+    }
+
 	/// Inconsistent state - stop here to receive error reports from users
 	if (((binariesRequested && !compilationSuccess) || !analysisPerformed) && errors.empty())
 		return formatFatalError("InternalCompilerError", "No error reported, but compilation failed.");
@@ -872,9 +886,9 @@ Json::Value StandardCompiler::compileSolidity(StandardCompiler::InputsAndSetting
 		Json::Value sourceResult = Json::objectValue;
 		sourceResult["id"] = sourceIndex++;
 		if (isArtifactRequested(_inputsAndSettings.outputSelection, sourceName, "", "ast", wildcardMatchesExperimental))
-			sourceResult["ast"] = ASTJsonConverter(false, compilerStack.sourceIndices()).toJson(compilerStack.ast(sourceName));
+          sourceResult["ast"] = ASTJsonConverter(false, compilerStack.sourceIndices(), gasCosts).toJson(compilerStack.ast(sourceName));
 		if (isArtifactRequested(_inputsAndSettings.outputSelection, sourceName, "", "legacyAST", wildcardMatchesExperimental))
-			sourceResult["legacyAST"] = ASTJsonConverter(true, compilerStack.sourceIndices()).toJson(compilerStack.ast(sourceName));
+          sourceResult["legacyAST"] = ASTJsonConverter(true, compilerStack.sourceIndices(), gasCosts).toJson(compilerStack.ast(sourceName));
 		output["sources"][sourceName] = sourceResult;
 	}
 

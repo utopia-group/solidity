@@ -24,6 +24,7 @@
 
 #include <libsolidity/ast/ASTAnnotations.h>
 #include <libsolidity/ast/ASTVisitor.h>
+#include <libsolidity/interface/GasEstimator.h>
 #include <liblangutil/Exceptions.h>
 
 #include <json/json.h>
@@ -53,11 +54,12 @@ public:
 	/// @a _sourceIndices is used to abbreviate source names in source locations.
 	explicit ASTJsonConverter(
 		bool _legacy,
-		std::map<std::string, unsigned> _sourceIndices = std::map<std::string, unsigned>()
+		std::map<std::string, unsigned> _sourceIndices = std::map<std::string, unsigned>(),
+        GasEstimator::ASTGasConsumption const& _gasCosts = GasEstimator::ASTGasConsumption()
 	);
 	/// Output the json representation of the AST to _stream.
-	void print(std::ostream& _stream, ASTNode const& _node);
-	Json::Value&& toJson(ASTNode const& _node);
+  void print(std::ostream& _stream, ASTNode const& _node);
+  Json::Value&& toJson(ASTNode const& _node);
 	template <class T>
 	Json::Value toJson(std::vector<ASTPointer<T>> const& _nodes)
 	{
@@ -184,6 +186,7 @@ private:
 	bool m_inEvent = false; ///< whether we are currently inside an event or not
 	Json::Value m_currentValue;
 	std::map<std::string, unsigned> m_sourceIndices;
+    GasEstimator::ASTGasConsumption const& m_gasCosts;
 };
 
 }
