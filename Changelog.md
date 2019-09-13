@@ -13,6 +13,7 @@ Compiler Features:
 
 
 Bugfixes:
+ * Yul Optimizer: Fix reordering bug in connection with shift instructions in for loop conditions.
 
 
 ### 0.5.11 (2019-08-12)
