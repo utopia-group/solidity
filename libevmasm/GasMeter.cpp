@@ -133,7 +133,7 @@ GasMeter::GasConsumption GasMeter::estimateMax(AssemblyItem const& _item, bool _
 			if (u256 const* value = classes.knownConstant(m_state->relativeStackElement(-1)))
 				gas += GasCosts::logDataGas * (*value);
 			else
-				gas = GasConsumption::infinite();
+              gas += GasCosts::unknownGas;
 			break;
 		}
 		case Instruction::CALL:
@@ -148,9 +148,9 @@ GasMeter::GasConsumption GasMeter::estimateMax(AssemblyItem const& _item, bool _
 			{
 				gas = GasCosts::callGas(m_evmVersion);
 				if (u256 const* value = classes.knownConstant(m_state->relativeStackElement(0)))
-					gas += (*value);
+                  gas += (*value);
 				else
-					gas = GasConsumption::infinite();
+                  gas += GasCosts::unknownGas;
 				if (_item.instruction() == Instruction::CALL)
 					gas += GasCosts::callNewAccountGas; // We very rarely know whether the address exists.
 				int valueSize = 1;
@@ -201,7 +201,7 @@ GasMeter::GasConsumption GasMeter::estimateMax(AssemblyItem const& _item, bool _
 		break;
 	}
 	default:
-		gas = GasConsumption::infinite();
+        gas = GasCosts::unknownGas;
 		break;
 	}
 
@@ -213,25 +213,28 @@ GasMeter::GasConsumption GasMeter::wordGas(u256 const& _multiplier, ExpressionCl
 {
 	u256 const* value = m_state->expressionClasses().knownConstant(_value);
 	if (!value)
-		return GasConsumption::infinite();
+      value = &GasCosts::unknownValue;
 	return GasConsumption(_multiplier * ((*value + 31) / 32));
 }
 
 GasMeter::GasConsumption GasMeter::memoryGas(ExpressionClasses::Id _position)
 {
 	u256 const* value = m_state->expressionClasses().knownConstant(_position);
+    u256 actualVal;
 	if (!value)
-		return GasConsumption::infinite();
-	if (*value < m_largestMemoryAccess)
+      actualVal = m_largestMemoryAccess + GasCosts::unknownValue;
+    else
+      actualVal = *value;
+	if (actualVal < m_largestMemoryAccess)
 		return GasConsumption(0);
 	u256 previous = m_largestMemoryAccess;
-	m_largestMemoryAccess = *value;
+	m_largestMemoryAccess = actualVal;
 	auto memGas = [=](u256 const& pos) -> u256
 	{
 		u256 size = (pos + 31) / 32;
 		return GasCosts::memoryGas * size + size * size / GasCosts::quadCoeffDiv;
 	};
-	return memGas(*value) - memGas(previous);
+	return memGas(actualVal) - memGas(previous);
 }
 
 GasMeter::GasConsumption GasMeter::memoryGas(int _stackPosOffset, int _stackPosSize)

@@ -1129,7 +1129,7 @@ void CommandLineInterface::handleAst(string const& _argStr)
 				if (auto const* assemblyItems = m_compiler->runtimeAssemblyItems(contract))
 				{
 					auto ret = GasEstimator::breakToStatementLevel(
-						GasEstimator(m_evmVersion).structuralEstimation(*assemblyItems, asts),
+                      GasEstimator(m_evmVersion).structuralEstimation(*assemblyItems, asts, false),
 						asts
 					);
 					for (auto const& it: ret)

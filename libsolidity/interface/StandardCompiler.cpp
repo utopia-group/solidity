@@ -858,7 +858,7 @@ Json::Value StandardCompiler::compileSolidity(StandardCompiler::InputsAndSetting
             if (auto const* assemblyItems = compilerStack.runtimeAssemblyItems(contract))
             {
                 auto ret = GasEstimator::breakToStatementLevel(
-                  GasEstimator(_inputsAndSettings.evmVersion).structuralEstimation(*assemblyItems, asts), asts);
+                  GasEstimator(_inputsAndSettings.evmVersion).structuralEstimation(*assemblyItems, asts, false), asts);
                 for (auto const& it: ret)
                    gasCosts[it.first] += it.second;
             }

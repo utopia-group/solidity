@@ -38,6 +38,9 @@ class KnownState;
 
 namespace GasCosts
 {
+    static unsigned const unknownGas = 1000;
+    static u256 const unknownValue = u256(1000);
+
 	static unsigned const stackLimit = 1024;
 	static unsigned const tier0Gas = 0;
 	static unsigned const tier1Gas = 2;

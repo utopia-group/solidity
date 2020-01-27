@@ -43,7 +43,8 @@ using namespace dev::solidity;
 
 GasEstimator::ASTGasConsumptionSelfAccumulated GasEstimator::structuralEstimation(
 	AssemblyItems const& _items,
-	vector<ASTNode const*> const& _ast
+	vector<ASTNode const*> const& _ast,
+    bool _includeExternal
 ) const
 {
 	solAssert(std::count(_ast.begin(), _ast.end(), nullptr) == 0, "");
@@ -56,7 +57,7 @@ GasEstimator::ASTGasConsumptionSelfAccumulated GasEstimator::structuralEstimatio
 		GasMeter meter(block.startState->copy(), m_evmVersion);
 		auto const end = _items.begin() + block.end;
 		for (auto iter = _items.begin() + block.begin; iter != end; ++iter)
-			particularCosts[iter->location()] += meter.estimateMax(*iter);
+          particularCosts[iter->location()] += meter.estimateMax(*iter, _includeExternal);
 	}
 
 	set<ASTNode const*> finestNodes = finestNodesAtLocation(_ast);

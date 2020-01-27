@@ -54,7 +54,8 @@ public:
 	/// @returns a mapping from each AST node to a pair of its particular and syntactically accumulated gas costs.
 	ASTGasConsumptionSelfAccumulated structuralEstimation(
 		eth::AssemblyItems const& _items,
-		std::vector<ASTNode const*> const& _ast
+		std::vector<ASTNode const*> const& _ast,
+         bool _includeExternal = false
 	) const;
 	/// @returns a mapping from nodes with non-overlapping source locations to gas consumptions such that
 	/// the following source locations are part of the mapping:
